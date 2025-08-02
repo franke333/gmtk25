@@ -2,26 +2,34 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class ProjectileScript : MonoBehaviour
+public class ProjectileScript : RuntimeGO
 {
     public float speed = 5f;
     public int damage = 1;
     public float lifetime = 5f;
     public Vector2 direction;
     public Sprite sprite;
+    public Color color = Color.white;
+
+    public float? slow, slowDuration;
 
     private float timer;
     private Rigidbody2D rb;
     private CircleCollider2D collider;
     private SpriteRenderer sr;
+    
 
-    public void Initialize(Vector2 direction, float speed, float lifetime, int damage = 1, Sprite sprite = null)
+    public void Initialize(Vector2 direction, float speed, float lifetime, int damage = 1, Sprite sprite = null, float? slow = null, float? slowDuration = null, Color? color = null)
     {      
         this.direction = direction;
         this.speed = speed;
         this.lifetime = lifetime;
         this.damage = damage;
         this.sprite = sprite;
+
+        this.slow = slow;
+        this.slowDuration = slowDuration;
+        if (color.HasValue) this.color = color.Value;
     }
 
     private void Start()
@@ -37,6 +45,7 @@ public class ProjectileScript : MonoBehaviour
 
         sr = gameObject.AddComponent<SpriteRenderer>();
         sr.sprite = sprite;
+        sr.color = color;
     }
 
     private void Update()
@@ -55,7 +64,14 @@ public class ProjectileScript : MonoBehaviour
             DummyEnemyScript enemy = collision.GetComponent<DummyEnemyScript>();
             if (enemy != null)
             {
-                enemy.TakeDamage(damage);
+                if( slow.HasValue && slowDuration.HasValue)
+                {
+                    enemy.TakeDamage(damage, slow.Value, slowDuration.Value);
+                }
+                else
+                {
+                    enemy.TakeDamage(damage);
+                }
                 Destroy(gameObject);
             }
         }

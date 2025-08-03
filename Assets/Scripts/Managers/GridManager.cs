@@ -54,12 +54,42 @@ public class GridManager : SingletonClass<GridManager>
         }
     }
 
+    public Vector2Int GetMouseOnGrid()
+    {
+        Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        return new Vector2Int(width > 0 ? Mathf.FloorToInt(mousePosition.x - offset.x + 0.5f) : 0,
+                               height > 0 ? Mathf.FloorToInt(mousePosition.y - offset.y + 0.5f) : 0);
+
+    }
+
     private void Update()
     {
         ProcessUpgrade();
         UpdatePositionSelectedTurret();
         UpdateColorSelectedTurret();
         PlaceSelectedTurret();
+        UpdateHoverUpgradeSelection();
+    }
+
+    private void UpdateHoverUpgradeSelection()
+    {
+        // get cursor square
+        Vector2Int cursorPos = GetMouseOnGrid();
+
+        // check if there is a turret at the cursorPos of current player color
+        GameObject turret;
+        if (placedTurrets.TryGetValue(cursorPos, out turret) && turret != null)
+        {
+            TurretScript turretScript;
+            if (turret.TryGetComponent<TurretScript>(out turretScript) && turretScript != null &&
+                turretScript.GetComponent<SpriteRenderer>().color == GameManager.Instance.currentPlayerColor)
+            {
+                GameManager.Instance.UpdateSelectedTurretUpgradeCost(turretScript.level);
+                return;
+            }
+        }
+        GameManager.Instance.UpdateSelectedTurretUpgradeCost(-1);
+
     }
 
     private void ProcessUpgrade()
@@ -78,26 +108,30 @@ public class GridManager : SingletonClass<GridManager>
         {
             //start upgrading
             //check if a turret is selected
-            Vector2Int cursorPos = new Vector2Int((int)(gridSelectionObject.transform.position.x - offset.x), (int)(gridSelectionObject.transform.position.y - offset.y));
+            Vector2Int cursorPos = GetMouseOnGrid();
             GameObject turret;
             if (!placedTurrets.TryGetValue(cursorPos, out turret))
                 return;
-            Debug.Log("AAA");
             if (turret == null)
                 return;
-            Debug.Log("BBB");
             TurretScript turretScript;
             if(!turret.TryGetComponent<TurretScript>(out turretScript))
                 return;
-            Debug.Log("CCC");
             if (turretScript == null)
                 return;
-            Debug.Log("DDD");
             if (turretScript.GetComponent<SpriteRenderer>().color != GameManager.Instance.currentPlayerColor)
                 return;
+            if (turretScript.level >= 3)
+                return; // Cannot upgrade beyond level 3
 
-            Debug.Log("EEE");
-            //TODO check money
+            //check money
+            if (GameManager.Instance.Money < GameManager.Instance.BaseUpgradeCost + turretScript.level*GameManager.Instance.TurretUpgradeIncrement)
+            {
+                Debug.Log("Not enough money to upgrade turret.");
+                AudioManager.Instance.PlayNotAllowed();
+                return;
+            }
+
             upgradePos = cursorPos;
             LoadUpgradePopup.SetActive(true);
             upgradeTime = 0f;
@@ -107,10 +141,7 @@ public class GridManager : SingletonClass<GridManager>
             LoadUpgradePopup.transform.position = poss;
             return;
         }
-        Vector2Int currentPos = new Vector2Int(
-            (int)(gridSelectionObject.transform.position.x - offset.x),
-            (int)(gridSelectionObject.transform.position.y - offset.y)
-        );
+        Vector2Int currentPos = GetMouseOnGrid();
         if (Input.GetMouseButtonUp(0) || upgradePos != currentPos)
         {
             upgradePos = new Vector2Int(-1, -1);
@@ -132,19 +163,15 @@ public class GridManager : SingletonClass<GridManager>
             LoadUpgradePopup.SetActive(false);
             upgradePos = new Vector2Int(-1, -1);
             upgradeTime = 0f;
-            //TODO deduct money
-            //TODO add upgrade to history
+            
         }
     }
 
     private void UpdateColorSelectedTurret()
     {
-        Vector2Int gridPosition = new Vector2Int(
-            (int)(gridSelectionObject.transform.position.x - offset.x),
-            (int)(gridSelectionObject.transform.position.y - offset.y)
-            );
+        Vector2Int gridPosition = GetMouseOnGrid();
         bool validPos = !invalidPositions.Contains(gridPosition) && gridSelectionObject.activeSelf;
-        bool validMoney = GameManager.Instance.money >= GameManager.Instance.nextTurretCost;
+        bool validMoney = GameManager.Instance.Money >= GameManager.Instance.NextTurretCost;
         if(gridSelectionObjectSR == null)
             gridSelectionObjectSR = gridSelectionObject.GetComponent<SpriteRenderer>();
 
@@ -155,7 +182,7 @@ public class GridManager : SingletonClass<GridManager>
 
     public void UpdatePositionSelectedTurret()
     {
-        if(gridSelectionObject == null)
+        if(gridSelectionObject == null || selectedTurret == null)
             return;
 
         Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
@@ -194,12 +221,25 @@ public class GridManager : SingletonClass<GridManager>
         Destroy(placedTurrets[position].gameObject);
         placedTurrets[position] = instance;
 
+        AudioManager.Instance.PlayPlaceDown();
+
 
     }
 
     public void UpgradeHistoryTurret(Vector2Int posiition)
     {
-        //TODO
+        Debug.Log($"Upgrade turret at {posiition} from History");
+        GameObject turret;
+        if (!placedTurrets.TryGetValue(posiition, out turret) || turret == null)
+        {
+            Debug.LogError($"No turret found at position {posiition}");
+            return;
+        }
+
+        TurretScript turretScript = turret.GetComponent<TurretScript>();
+        turretScript.UpgradeLevel();
+
+        AudioManager.Instance.PlayUpgrade();
     }
 
     public void PlaceReservetion(GameManager.HistoryEntry entry, Color color)
@@ -214,21 +254,28 @@ public class GridManager : SingletonClass<GridManager>
     {
         if(selectedTurret == null || !gridSelectionObject.activeSelf)
             return;
-        Vector2 gridPosition = gridSelectionObject.transform.position;
         // check if left click was pressed
         if (Input.GetMouseButtonDown(0))
         {
-            Vector2Int position = new Vector2Int((int)(gridPosition.x - offset.x), (int)(gridPosition.y - offset.y));
+            Vector2Int position = GetMouseOnGrid();
             if (invalidPositions.Contains(position))
             {
                 Debug.Log("Cannot place turret here, position is invalid.");
-                //TODO X sound
+                AudioManager.Instance.PlayNotAllowed();
                 return;
             }
-            if(GameManager.Instance.gameRunning == false)
+            if (GameManager.Instance.Money < GameManager.Instance.NextTurretCost)
+            {
+                Debug.Log("Not enough money to place turret.");
+                AudioManager.Instance.PlayNotAllowed();
+                return;
+            }
+            if (GameManager.Instance.gameRunning == false)
                 GameManager.Instance.gameRunning = true;
             // Place the turret
-            GameObject turretInstance = Instantiate(selectedTurret, gridPosition, Quaternion.identity);
+
+            Vector3 gridPos = gridSelectionObject.transform.position;
+            GameObject turretInstance = Instantiate(selectedTurret, gridPos, Quaternion.identity);
             turretInstance.SetActive(true);
             turretInstance.GetComponent<SpriteRenderer>().color = GameManager.Instance.currentPlayerColor;
             // Add the position to invalid positions
@@ -236,13 +283,34 @@ public class GridManager : SingletonClass<GridManager>
             invalidPositions.Add(position);
             GameManager.Instance.MarkTurretBuild(position, turretInstance.GetComponent<TurretScript>().turretType);
             placedTurrets[position] = turretInstance;
+
+            GameManager.Instance.Money -= GameManager.Instance.NextTurretCost;
+            GameManager.Instance.NextTurretCost += GameManager.Instance.TurretCostIncrement;
+
+            AudioManager.Instance.PlayPlaceDown();
+            selectedTurret = null;
+            gridSelectionObject.SetActive(false);
         }
     }
 
     public void UpgradeTurret(Vector2Int at)
     {
-        //TODO
         Debug.Log($"Upgrade turret at {at}");
+        GameObject turret;
+        if (!placedTurrets.TryGetValue(at, out turret) || turret == null)
+        {
+            Debug.LogError($"No turret found at position {at}");
+            return;
+        }
+
+        TurretScript turretScript = turret.GetComponent<TurretScript>();
+        GameManager.Instance.MarkTurretUpgrade(at);
+
+        GameManager.Instance.Money -= GameManager.Instance.BaseUpgradeCost + turretScript.level * GameManager.Instance.TurretUpgradeIncrement;
+        turretScript.UpgradeLevel();
+
+        AudioManager.Instance.PlayUpgrade();
+
     }
 
     private void OnDrawGizmos()

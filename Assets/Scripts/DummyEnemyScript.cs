@@ -61,7 +61,7 @@ public class DummyEnemyScript : RuntimeGO
         if (HP <= 0)
         {
             Destroy(gameObject);
-            //TODO give money
+            GameManager.Instance.Money += MoneyWorth;
         }
     }
 }

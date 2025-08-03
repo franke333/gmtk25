@@ -7,14 +7,21 @@ public class WaveManager : SingletonClass<WaveManager>
     [SerializeField] private List<GameObject> enemyPrefabs;
     float cd = 0;
 
+    public AnimationCurve spawnCD;
+    public float duration = 4.25f*60;
+
     private void Update()
     {
         if (!GameManager.Instance.gameRunning)
             return;
+        if(GameManager.Instance.gameTime > duration)
+        {
+            return;
+        }
         cd -= Time.deltaTime;
         if(cd <= 0f)
         {
-            cd = 0.25f; // Reset cooldown to 1 second
+            cd = spawnCD.Evaluate(GameManager.Instance.gameTime / duration);
             SpawnEnemy();
         }
     }

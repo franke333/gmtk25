@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Net;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class GameManager : SingletonClass<GameManager>
@@ -46,10 +47,29 @@ public class GameManager : SingletonClass<GameManager>
     public bool gameRunning = false;
 
     public int HP = 3;
-    public int money = 10;
-    public int nextTurretCost = 10;
 
     public GameObject pointers;
+
+    [Header("UI texts")]
+    public TMPro.TextMeshProUGUI moneyText;
+    public TMPro.TextMeshProUGUI hpText;
+    public TMPro.TextMeshProUGUI nextTurretCostText;
+    public TMPro.TextMeshProUGUI nextUpgradeCostText;
+    public TMPro.TextMeshProUGUI helpText;
+    public TMPro.TextMeshProUGUI flavorText;
+    public TMPro.TextMeshProUGUI timerText;
+    public TMPro.TextMeshProUGUI timeScaleText;
+    public List<string> flavorTexts;
+
+    [Header("Economy")]
+    public int Money = 10;
+    [HideInInspector]
+    public int NextTurretCost = 10;
+    public int BaseUpgradeCost = 10;
+    public int TurretUpgradeIncrement = 10;
+    public int TurretCostIncrement = 10;
+    public int _startingMoney = 10;
+    public int _startingTurretCost = 10;
 
     private HashSet<RuntimeGO> runtimeGOs = new HashSet<RuntimeGO>();
 
@@ -103,15 +123,66 @@ public class GameManager : SingletonClass<GameManager>
         playerProfiles[currentPlayerIndex].color = currentPlayerColor;
         gameTime = 0f;
 
+        HP = 3;
+
+        Money = _startingMoney;
+        NextTurretCost = _startingTurretCost;
+        flavorText.text = flavorTexts[Random.Range(0, flavorTexts.Count)];
+
+    }
+
+    public void ToggleTimeSpeed()
+    {
+        if(Time.timeScale == 2f)
+        {
+            Time.timeScale = 1f;
+        }
+        else
+        {
+            Time.timeScale = 2f;
+        }
+        timeScaleText.text = "Time: " + ((int)Time.timeScale).ToString() + "x";
+    }
+
+    private void UpdateTexts()
+    {
+        hpText.text = "Queen HP: " + HP.ToString();
+        moneyText.text = "$$$: " + Money.ToString();
+        nextTurretCostText.text = "Next Turret Cost:\n" + NextTurretCost.ToString() + "$";
+        if(!gameRunning)
+            helpText.text = "Start by choosing a turret and placing it with mouse left click on a valid position.";
+        else
+            helpText.text = "You can upgrade turrets by holding mouse left click on them.";
+        float remainingTime = 5*60 - gameTime;
+        int minutes = Mathf.FloorToInt(remainingTime / 60);
+        int seconds = Mathf.FloorToInt(remainingTime % 60);
+        int hundredths = Mathf.FloorToInt((remainingTime - Mathf.Floor(remainingTime)) * 100);
+        timerText.text = string.Format("{0:D1}:{1:D2}:{2:D2}", minutes, seconds, hundredths);
+    }
+
+    public void UpdateSelectedTurretUpgradeCost(int level)
+    {
+        string cost = "";
+        if (level == -1 || level == 3)
+            cost = "---";
+        else
+            cost = (BaseUpgradeCost + TurretUpgradeIncrement * level).ToString() + "$";
+        nextUpgradeCostText.text = "Next Upgrade Cost:\n" + cost;
+
     }
 
     private void Update()
     {
+        UpdateTexts();
         pointers.SetActive(!gameRunning);
         if (!gameRunning)
             return;
         gameTime += Time.deltaTime;
         PlayHistoryPlayers();
+        if(gameTime >= 5 * 60)
+        {
+            SceneManager.LoadScene("WinScreen");
+        }
     }
 
     public void MarkTurretBuild(Vector2Int pos, TurretType tt)
@@ -136,6 +207,7 @@ public class GameManager : SingletonClass<GameManager>
             // Handle game over logic here
             Start();
             GridManager.Instance.Start();
+            AudioManager.Instance.PlayLose();
         }
     }
 

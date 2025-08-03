@@ -25,28 +25,35 @@ public class TurretScript : RuntimeGO
 
     private void Start()
     {
+        SpriteRenderer sr = gameObject.GetComponent<SpriteRenderer>();
         //get range
+        // and set sprite
         switch (turretType)
         {
             case TurretType.Aoe:
                 range = CollectionManager.Instance.aoeturretLevels[level].range;
+                sr.sprite = CollectionManager.Instance.aoeturretSprites[level];
                 gameObject.GetComponent<BubbleSpawner>().range = range;
+                BubbleSpawner bubbleSpawner = gameObject.GetComponent<BubbleSpawner>();
+                bubbleSpawner.cd = (4 - level) * 0.02f;
                 break;
             case TurretType.Slow:
                 range = CollectionManager.Instance.slowturretLevels[level].range;
+                sr.sprite = CollectionManager.Instance.slowturretSprites[level];
                 break;
             case TurretType.RapidFire:
                 range = CollectionManager.Instance.rapidfireturretLevels[level].range;
+                sr.sprite = CollectionManager.Instance.rapidfireturretSprites[level];
                 break;
             case TurretType.Shotgun:
                 range = CollectionManager.Instance.shotgunturretLevels[level].range;
+                sr.sprite = CollectionManager.Instance.shotgunturretSprites[level];
                 break;
             default:
                 break;
         }
         gameObject.GetComponent<CircleCollider2D>().radius = range;
-        color = gameObject.GetComponent<SpriteRenderer>().color;
-
+        color = sr.color;
     }
 
     private void Update()
@@ -62,6 +69,14 @@ public class TurretScript : RuntimeGO
             Shoot();
         }
     }
+
+    public void UpgradeLevel()
+    {
+        level++;
+        Start();
+
+    }
+
     private void Shoot()
     {
         DummyEnemyScript target = GetTarget();
@@ -110,8 +125,9 @@ public class TurretScript : RuntimeGO
         TurretLevel levelData = CollectionManager.Instance.rapidfireturretLevels[level];
         Vector2 direction = (target.transform.position - transform.position).normalized;
         Sprite spr = CollectionManager.Instance.generalProjectiles[Random.Range(0, CollectionManager.Instance.generalProjectiles.Count)];
-        SpawnBullet(direction, 6.5f, 1.5f, levelData.damage,sprite: spr);
+        SpawnBullet(direction, 8f, levelData.range/8f + 0.5f, levelData.damage,sprite: spr);
         timer = levelData.cd;
+        AudioManager.Instance.PlayShoot();
     }
 
     private void ShootShotgun(DummyEnemyScript target)
@@ -123,17 +139,21 @@ public class TurretScript : RuntimeGO
             float angle = Random.Range(-15f, 15f);
             Vector2 spreadDirection = Quaternion.Euler(0, 0, angle) * direction;
             Sprite spr = CollectionManager.Instance.generalProjectiles[Random.Range(0, CollectionManager.Instance.generalProjectiles.Count)];
-            SpawnBullet(spreadDirection, 4f, 2f, levelData.damage,sprite: spr);
+            float speed = 5f + Random.Range(-1f, 1f);
+            SpawnBullet(spreadDirection, speed, levelData.range/speed + 0.5f, levelData.damage,sprite: spr);
         }
         timer = levelData.cd;
+        AudioManager.Instance.PlayShoot();
     }
 
     private void ShootSlow(DummyEnemyScript target)
     {
         SlowLevel levelData = CollectionManager.Instance.slowturretLevels[level];
         Vector2 direction = (target.transform.position - transform.position).normalized;
-        SpawnBullet(direction, 3.5f, 1.7f, levelData.damage, levelData.slowAmount, 1f,CollectionManager.Instance.slowProjectile);
+        float speed = 3.5f;
+        SpawnBullet(direction, 3.5f, levelData.range/speed+0.5f, levelData.damage, levelData.slowAmount, 1f,CollectionManager.Instance.slowProjectile);
         timer = levelData.cd;
+        AudioManager.Instance.PlayShoot();
     }
 
     private void SpawnBullet(Vector2 direction, float speed, float lifetime, int damage = 1, float? slowAmount = null, float? slowDuration = null, Sprite sprite = null)

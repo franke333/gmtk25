@@ -100,9 +100,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a6f8206021f47c41a2182bee07d2f13, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 1.2
-  HP: 40
-  MoneyWorth: 1
+  speed: 1.4
+  HP: 45
+  MoneyWorth: 2
 --- !u!95 &5287452322820391179
 Animator:
   serializedVersion: 5

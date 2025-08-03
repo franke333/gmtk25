@@ -40,6 +40,12 @@ public class CollectionManager : SingletonClass<CollectionManager>
     public GameObject rapidfireturretPrefab;
     public GameObject shotgunturretPrefab;
 
+    [Header("Turrets Sprites")]
+    public List<Sprite> aoeturretSprites;
+    public List<Sprite> slowturretSprites;
+    public List<Sprite> rapidfireturretSprites;
+    public List<Sprite> shotgunturretSprites;
+
     [Header("Projectiles")]
     public List<Sprite> generalProjectiles;
     public Sprite slowProjectile;

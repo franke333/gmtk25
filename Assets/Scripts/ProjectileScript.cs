@@ -17,6 +17,8 @@ public class ProjectileScript : RuntimeGO
     private Rigidbody2D rb;
     private CircleCollider2D collider;
     private SpriteRenderer sr;
+
+    bool dmgDealt = false;
     
 
     public void Initialize(Vector2 direction, float speed, float lifetime, int damage = 1, Sprite sprite = null, float? slow = null, float? slowDuration = null, Color? color = null)
@@ -59,10 +61,12 @@ public class ProjectileScript : RuntimeGO
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
+        if (dmgDealt)
+            return;
         if (collision.CompareTag("Enemy"))
         {
             DummyEnemyScript enemy = collision.GetComponent<DummyEnemyScript>();
-            if (enemy != null)
+            if (enemy != null && enemy.HP > 0)
             {
                 if( slow.HasValue && slowDuration.HasValue)
                 {
@@ -72,6 +76,7 @@ public class ProjectileScript : RuntimeGO
                 {
                     enemy.TakeDamage(damage);
                 }
+                dmgDealt = true;
                 Destroy(gameObject);
             }
         }
